@@ -1,52 +1,23 @@
-# Dependencies
 node_modules/
-
-# Environment variables
 .env
-
-# Data files
 vanity_data.json
 autoswap_data.json
-
-# Logs
 *.log
 logs/
-
-# Runtime data
 pids
 *.pid
 *.seed
 *.pid.lock
-
-# Coverage directory used by tools like istanbul
 coverage/
-
-# Compiled binary addons
 build/Release/
-
-# Dependency directories
 jspm_packages/
-
-# Optional npm cache directory
 .npm
-
-# Optional eslint cache
 .eslintrc.cache
-
-# Output of 'npm pack'
 *.tgz
-
-# Yarn Integrity file
 .yarn-integrity
-
-# dotenv environment variables file
 .env
 .env.test
-
-# Actual proxy configuration (if sensitive)
 proxies.js
-
-# IDE files
 .vscode/
 .idea/
 *.swp
