@@ -1,3 +1,8 @@
+// Load environment variables (only needed for local development)
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
+
 const {
     Client,
     GatewayIntentBits,
@@ -8,7 +13,14 @@ const axios = require("axios");
 const fs = require("fs").promises;
 const express = require("express");
 const { HttpsProxyAgent } = require("https-proxy-agent");
-const proxies = require("./proxies.js");
+
+// Import proxies if file exists, otherwise use empty array
+let proxies = [];
+try {
+    proxies = require("./proxies.js");
+} catch (error) {
+    console.log("No proxies.js file found, running without proxies");
+}
 
 class VanityMonitorBot {
     constructor() {
@@ -30,7 +42,7 @@ class VanityMonitorBot {
         this.proxies = proxies || [];
         this.currentProxyIndex = 0;
 
-        console.log(`Loaded ${this.proxies.length} proxies from proxies.js`);
+        console.log(`Loaded ${this.proxies.length} proxies`);
 
         this.setupEventHandlers();
         this.loadData();
@@ -96,7 +108,6 @@ class VanityMonitorBot {
     }
 
     async sendCreditsMessage() {
-        
         for (const guild of this.client.guilds.cache.values()) {
             await this.sendCreditsMessageToGuild(guild);
         }
@@ -104,7 +115,6 @@ class VanityMonitorBot {
 
     async sendCreditsMessageToGuild(guild) {
         try {
-            
             const channel = guild.channels.cache.find(
                 channel => 
                     channel.type === 0 && 
@@ -208,14 +218,12 @@ class VanityMonitorBot {
             );
         }
 
-        
         if (!/^\d{17,19}$/.test(targetGuildId)) {
             return message.reply(
                 "Please provide a valid guild ID (17-19 digits).",
             );
         }
 
-        
         const targetGuild = this.client.guilds.cache.get(targetGuildId);
         if (!targetGuild) {
             return message.reply(
@@ -223,7 +231,6 @@ class VanityMonitorBot {
             );
         }
 
-        
         const botMember = targetGuild.members.cache.get(this.client.user.id);
         if (!botMember || !botMember.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
             return message.reply(
@@ -482,7 +489,6 @@ class VanityMonitorBot {
                 throw new Error(`Bot not in target guild ${targetGuildId}`);
             }
 
-            
             await targetGuild.setVanityCode(vanityUrl);
             
             console.log(`Successfully claimed vanity ${vanityUrl} for guild ${targetGuild.name}`);
@@ -497,7 +503,6 @@ class VanityMonitorBot {
         console.log("Starting vanity monitoring...");
 
         setInterval(async () => {
-            
             for (const [vanityKey, data] of this.monitoredVanities.entries()) {
                 try {
                     const exists = await this.checkVanityExists(data.vanityUrl);
@@ -515,7 +520,6 @@ class VanityMonitorBot {
                 }
             }
 
-            
             for (const [vanityKey, data] of this.autoSwapVanities.entries()) {
                 try {
                     const exists = await this.checkVanityExists(data.vanityUrl);
@@ -530,7 +534,6 @@ class VanityMonitorBot {
                         } else {
                             await this.notifyAutoSwapFailed(data.vanityUrl, data);
                         }
-                        
                         
                         this.autoSwapVanities.delete(vanityKey);
                         await this.saveAutoSwapData();
@@ -683,12 +686,10 @@ class VanityMonitorBot {
             const data = await fs.readFile(this.dataFile, "utf8");
             const parsed = JSON.parse(data);
             
-            
             const entries = Object.entries(parsed);
             let needsMigration = false;
             
             for (const [key, value] of entries) {
-                
                 if (!key.includes('_') || !value.vanityUrl) {
                     needsMigration = true;
                     break;
@@ -700,7 +701,6 @@ class VanityMonitorBot {
                 const migratedData = new Map();
                 
                 for (const [oldKey, value] of entries) {
-                    
                     if (!oldKey.includes('_')) {
                         const guildId = value.guildId || 'dm';
                         const vanityUrl = oldKey;
@@ -711,7 +711,6 @@ class VanityMonitorBot {
                             vanityUrl: vanityUrl
                         });
                     } else {
-                        
                         migratedData.set(oldKey, value);
                     }
                 }
@@ -720,7 +719,6 @@ class VanityMonitorBot {
                 await this.saveData(); 
                 console.log(`Migrated and loaded ${this.monitoredVanities.size} monitored vanities`);
             } else {
-                
                 this.monitoredVanities = new Map(entries);
                 console.log(`Loaded ${this.monitoredVanities.size} monitored vanities`);
             }
@@ -759,16 +757,32 @@ class VanityMonitorBot {
     }
 
     start(token) {
+        if (!token) {
+            console.error("❌ Bot token is required!");
+            console.error("Please set the DISCORD_BOT_TOKEN environment variable.");
+            process.exit(1);
+        }
+        
+        console.log("🚀 Starting bot...");
         this.client.login(token);
     }
 }
 
+// Initialize bot
 const bot = new VanityMonitorBot();
 
-const BOT_TOKEN = 
-    process.env.BOT_TOKEN ||
-    "MTM3ODc4ODIyMjIxMzI5NjE3OQ.GrZgaF.Dsbs6EsMqXXz31adoACrW1NdTYbWBWyjtvYe1M";
+// Get bot token from environment variables
+const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 
+// Validate token exists
+if (!BOT_TOKEN) {
+    console.error("❌ DISCORD_BOT_TOKEN environment variable is not set!");
+    console.error("For local development: create a .env file with DISCORD_BOT_TOKEN=your_token");
+    console.error("For Railway: set the environment variable in your Railway dashboard");
+    process.exit(1);
+}
+
+// Express server for Railway deployment
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -776,29 +790,48 @@ app.get("/", (req, res) => {
     res.json({
         status: "online",
         uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development',
         monitored_vanities: bot.monitoredVanities.size,
         auto_swap_vanities: bot.autoSwapVanities.size,
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get("/health", (req, res) => {
+    res.json({
+        status: "healthy",
+        bot_status: bot.client.readyAt ? "ready" : "connecting",
+        uptime: process.uptime()
     });
 });
 
 app.listen(port, () => {
-    console.log(`Keep-alive server running on port ${port}`);
+    console.log(`🌐 Keep-alive server running on port ${port}`);
 });
 
+// Start the bot
 bot.start(BOT_TOKEN);
 
+// Graceful shutdown handlers
 process.on("SIGINT", async () => {
-    console.log("Shutting down...");
+    console.log("🛑 Shutting down gracefully...");
+    await bot.saveData();
+    await bot.saveAutoSwapData();
+    process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+    console.log("🛑 Received SIGTERM, shutting down gracefully...");
     await bot.saveData();
     await bot.saveAutoSwapData();
     process.exit(0);
 });
 
 process.on("unhandledRejection", (error) => {
-    console.error("Unhandled promise rejection:", error);
+    console.error("❌ Unhandled promise rejection:", error);
 });
 
 process.on("uncaughtException", (error) => {
-    console.error("Uncaught exception:", error);
+    console.error("❌ Uncaught exception:", error);
     process.exit(1);
 });
