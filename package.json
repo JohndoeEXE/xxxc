@@ -1,22 +1,32 @@
 {
   "name": "vanity-monitor-bot",
   "version": "1.0.0",
-  "description": "Discord bot for monitoring vanity URLs",
+  "description": "Discord bot to monitor server vanity URLs and auto-claim them",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",
     "dev": "nodemon bot.js"
   },
+  "keywords": [
+    "discord",
+    "bot",
+    "vanity",
+    "monitor",
+    "discord.js"
+  ],
+  "author": "oxy",
+  "license": "MIT",
   "dependencies": {
     "discord.js": "^14.14.1",
-    "axios": "^1.6.2",
+    "axios": "^1.6.0",
     "express": "^4.18.2",
-    "https-proxy-agent": "^7.0.2"
+    "https-proxy-agent": "^7.0.2",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.1"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   }
 }
